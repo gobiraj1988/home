@@ -122,6 +122,23 @@ Smoke tests cover config loading, the path-traversal sandbox, formatting helpers
 and that each server imports and exposes `main()`. Server tests skip gracefully when
 optional deps (MT5, etc.) aren't present.
 
+## 🧹 Folder cleanup audit (`tools/`)
+
+Cleaning up old bot copies on your `J:` drive? Run the **read-only** audit first —
+it never deletes anything, it just tells you which folder is safe to remove.
+
+```text
+tools\run_audit.bat        # double-click (easiest)
+# or:  powershell -ExecutionPolicy Bypass -File tools\audit_J_drive.ps1
+# add  -Hash  for exact SHA256 content comparison (slower, certain)
+```
+
+It reports each `J:` folder's size + file count, checks whether an old folder's
+files all exist in your LIVE (`My_Trader`, `APEX_KNOWLEDGE_LAKE`) and BACKUP
+folders, lists any **unique** files that would be lost, gives a SAFE / DO-NOT-DELETE
+verdict, and saves a timestamped report to `J:\_AUDIT_REPORT_*.txt`.
+Always `robocopy` to an external disk and verify before you delete.
+
 ## 🔒 Notes on safety
 
 - The RAG server can only read inside `APEX_DATA_DIR`.
