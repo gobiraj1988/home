@@ -19,6 +19,26 @@
 # --- Make the console UTF-8 so any non-ASCII output renders correctly. ----
 try { chcp 65001 > $null 2>&1; [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}
 
+# --- Registering a Scheduled Task needs Administrator rights. If we are not
+#     elevated, relaunch this same script "as admin" (a UAC prompt appears).
+#     Prefer the no-admin alternative install_autostart_startup.ps1 if you
+#     don't want the UAC prompt.
+$isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()
+           ).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+if (-not $isAdmin) {
+    Write-Host "Administrator rights are required. Relaunching with elevation (accept the UAC prompt)..." -ForegroundColor Yellow
+    try {
+        Start-Process powershell.exe -Verb RunAs -ArgumentList @(
+            "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "`"$PSCommandPath`""
+        )
+    } catch {
+        Write-Host "Could not elevate. Either accept the UAC prompt, or use the" -ForegroundColor Red
+        Write-Host "no-admin option instead: install_autostart_startup.ps1" -ForegroundColor Red
+        Read-Host "Press Enter to exit"
+    }
+    return
+}
+
 # --- Configuration (edit here if paths/ports ever change). ----------------
 $TaskName = "APEX_Backend"
 $Exe      = "J:\APEX_AGI_Forex_Trading_Bot\APEX QUANT\.venv\Scripts\pythonw.exe"
@@ -68,7 +88,8 @@ try {
         -Trigger $trigger `
         -Settings $settings `
         -Principal $principal `
-        -Description "Keeps the APEX trading backend (uvicorn :8010) running." | Out-Null
+        -Description "Keeps the APEX trading backend (uvicorn :8010) running." `
+        -ErrorAction Stop | Out-Null
 
     Write-Host "Scheduled task '$TaskName' registered." -ForegroundColor Green
 

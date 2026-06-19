@@ -13,8 +13,9 @@ Dashboard = `J:\My_Trader\dashboard\nexus_terminal.html`
 
 **"Naan chart eppovum velai seyyanum, athuthaan venum":**
 
-- `install_autostart.ps1` file-a **right-click → "Run with PowerShell"**.
+- `install_autostart_startup.ps1` file-a **right-click → "Run with PowerShell"**.  ← **RECOMMENDED (Admin vendaam)**
 - **Oru thadava** pannina pothum. Apparam computer logon aana udane backend thaana start aagidum. Forever set. 🎉
+- (Crash aanaa thaana restart aaganum-na, advanced option: `install_autostart.ps1` — aanaa idhu **Admin (UAC)** kekkum.)
 
 **Autostart venaam, daily-a kaila start panna virumburaa:**
 
@@ -59,16 +60,30 @@ Idhu unga **daily easy button**.
 
 ---
 
-## 4. Option B — Permanent Autostart (`install_autostart.ps1`)
+## 4. Option B — Permanent Autostart (logon-la thaana start)
 
 Idhu thaan **truly permanent** option. Oru thadava set pannina, marubadi yosikka vendaam.
+**Rendu vazhi irukku** — Admin vendaadha B1 (recommended), alladhu Admin venum B2 (advanced).
 
-**Step-by-step:**
+### B1 (RECOMMENDED, Admin vendaam) — `install_autostart_startup.ps1`
 
-1. `windows\install_autostart.ps1` file-a **right-click** pannunga.
-2. **"Run with PowerShell"** -a select pannunga.
-3. (Admin kekkudhaan-na "Yes" kuduthuduங்க.)
-4. Idhu `APEX_Backend` nu oru **Windows Scheduled Task** create pannum.
+1. `windows\install_autostart_startup.ps1` file-a **right-click → "Run with PowerShell"**.
+2. "SUCCESS" message vandhaal mudinjadhu.
+3. Idhu unga **Startup folder**-la oru shortcut போடum. Logon aana udane backend thaana start aagum.
+
+- ✅ **Admin (UAC) vendaam.**
+- Remove pannanum-na: `uninstall_autostart_startup.ps1` right-click → Run with PowerShell.
+  (Alladhu **Win+R → `shell:startup`** → `APEX_Backend.lnk` delete pannunga.)
+
+### B2 (Advanced, Admin venum) — `install_autostart.ps1` (Scheduled Task)
+
+Crash aanaa **thaana restart** aaganum nu venum-na idhu use pannunga.
+
+1. `windows\install_autostart.ps1` file-a **right-click → "Run with PowerShell"**.
+2. **UAC prompt** vandhaal **"Yes"** kuduthuduங்க (idhu Admin-a marubadi run pannum).
+3. Idhu `APEX_Backend` nu oru **Windows Scheduled Task** create pannum.
+
+> "Access is denied" vandhaal = Admin illa. UAC-ku "Yes" kudunga, alladhu B1 use pannunga.
 
 **Enna setup aagudhu:**
 
@@ -100,12 +115,14 @@ Roju ஒரு thadava intha checks pannina pothum:
 **Scripts summary:**
 
 ```text
-START_APEX_ALL.bat       -> Backend start (persistent) + dashboard open  [daily button]
-start_apex_backend.bat   -> Backend mattum start (detached, window close pannalaum saagaadhu)
-stop_apex_backend.bat    -> Port 8010-la run aagura backend-a stop pannum
-status_apex_backend.bat  -> ONLINE / OFFLINE + process id kaattum
-install_autostart.ps1    -> Autostart setup (Scheduled Task "APEX_Backend")  [permanent]
-uninstall_autostart.ps1  -> Andha autostart task-a remove pannum
+START_APEX_ALL.bat              -> Backend start (persistent) + dashboard open  [daily button]
+start_apex_backend.bat          -> Backend mattum start (detached, window close pannalaum saagaadhu)
+stop_apex_backend.bat           -> Port 8010-la run aagura backend-a stop pannum
+status_apex_backend.bat         -> ONLINE / OFFLINE + process id kaattum
+install_autostart_startup.ps1   -> Autostart (Startup folder). NO ADMIN.   [recommended permanent]
+uninstall_autostart_startup.ps1 -> Andha startup shortcut-a remove pannum
+install_autostart.ps1           -> Autostart (Scheduled Task + auto-restart). ADMIN venum.  [advanced]
+uninstall_autostart.ps1         -> Andha scheduled task-a remove pannum
 ```
 
 ---
@@ -145,5 +162,5 @@ uninstall_autostart.ps1  -> Andha autostart task-a remove pannum
 
 > Doubt-na, simple-a nyabagam vechukonga:
 > 1) Chart venum → `START_APEX_ALL.bat` double-click.
-> 2) Forever venum → `install_autostart.ps1` right-click → Run with PowerShell.
+> 2) Forever venum (Admin vendaam) → `install_autostart_startup.ps1` right-click → Run with PowerShell.
 > 3) ONLINE-a check panna → `status_apex_backend.bat`.
