@@ -8,9 +8,12 @@
   என்ன செய்யும் / What it does:
     1. J: drive-ல உள்ள ஒவ்வொரு folder-ஓட size + file count காட்டும்.
     2. பழைய folder-ல உள்ள file எல்லாம் LIVE/BACKUP folder-ல இருக்கானு check பண்ணும்.
-    3. "Unique" (வேற எங்கேயும் இல்லாத) file-ஐ list பண்ணும் -- delete பண்ணா இவை போயிடும்.
+    3. "Unique" (வேற எங்கேயும் இல்லாத) MUKKIYAMAANA file-ஐ list பண்ணும்.
+       Junk (logs, .venv, __pycache__, *.pyc, *.log...) ignore பண்ணப்படும்,
+       ஏன்னா அவை தானா மறுபடி உருவாகும்.
     4. எந்த folder safe-ஆ delete பண்ணலாம்னு verdict கொடுக்கும்.
     5. ஒரு report file-ஆ save பண்ணும்.
+    (Tamil எழுத்து சரியா தெரிய console UTF-8-க்கு set பண்ணப்படும்.)
 
   Usage:
     Right-click -> "Run with PowerShell"   (அல்லது run_audit.bat-ஐ double-click)
@@ -23,10 +26,21 @@ param(
     [string[]] $LiveFolders    = @("My_Trader", "APEX_KNOWLEDGE_LAKE"),
     [string[]] $BackupFolders  = @("My_Trader_BACKUP_2026-06-14"),
     [string[]] $OldCandidates  = @("APEX_AGI_Forex_Trading_Bot"),
+    # Regeneratable junk -- ignored when judging "safe to delete".
+    [string[]] $JunkDirs       = @(".venv", "venv", "env", "__pycache__", "node_modules", ".git", "logs", "log", ".pytest_cache", ".mypy_cache", ".apex_index", ".idea", ".vs"),
+    [string[]] $JunkExt        = @(".pyc", ".pyo", ".log", ".tmp", ".temp", ".bak", ".lock"),
     [switch]   $Hash   # SHA256 exact comparison (மிகவும் accurate, ஆனா மெதுவா)
 )
 
 $ErrorActionPreference = "Stop"
+
+# Make Tamil/emoji render correctly in the console (UTF-8).
+try {
+    chcp 65001 > $null 2>&1
+    [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+    $OutputEncoding = [System.Text.Encoding]::UTF8
+} catch { }
+
 $report = New-Object System.Collections.Generic.List[string]
 
 function Say {
@@ -40,6 +54,20 @@ function HR { Say ("-" * 78) "DarkGray" }
 # ----------------------------------------------------------------------------
 #  Helpers
 # ----------------------------------------------------------------------------
+
+# True if a relative path is regeneratable junk (logs, caches, venvs, ...).
+function Test-IsJunk {
+    param([string]$RelPath)
+    $lower = $RelPath.ToLower()
+    foreach ($d in $JunkDirs) {
+        $dl = $d.ToLower()
+        if ($lower -like "*\$dl\*" -or $lower -like "$dl\*") { return $true }
+    }
+    foreach ($e in $JunkExt) {
+        if ($lower.EndsWith($e.ToLower())) { return $true }
+    }
+    return $false
+}
 
 function Get-FolderStats {
     param([string]$Path)
@@ -62,6 +90,8 @@ function Index-Folder {
     $lookup = @{}
     if (-not (Test-Path -LiteralPath $Path)) { return $lookup }
     Get-ChildItem -LiteralPath $Path -Recurse -File -Force -ErrorAction SilentlyContinue | ForEach-Object {
+        $rel = $_.FullName.Substring($Path.Length).TrimStart('\')
+        if (Test-IsJunk $rel) { return }   # 'return' inside ForEach-Object = skip this item
         try {
             if ($UseHash) {
                 $key = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash
@@ -149,29 +179,32 @@ foreach ($name in $OldCandidates) {
 
     Say ""
     Say ("  >> Folder: " + $name) "White"
-    $files   = Get-ChildItem -LiteralPath $path -Recurse -File -Force -ErrorAction SilentlyContinue
-    $total   = @($files).Count
-    $missing = New-Object System.Collections.Generic.List[string]
+    $files     = Get-ChildItem -LiteralPath $path -Recurse -File -Force -ErrorAction SilentlyContinue
+    $total     = @($files).Count
+    $missing   = New-Object System.Collections.Generic.List[string]
+    $junkCount = 0
 
     foreach ($f in $files) {
+        $rel = $f.FullName.Substring($path.Length).TrimStart('\')
+        if (Test-IsJunk $rel) { $junkCount++; continue }   # logs/.venv/cache -- ignore
         try {
             $key = Get-FileKey -File $f -UseHash:$Hash
-            if (-not $reference.ContainsKey($key)) {
-                $missing.Add($f.FullName.Substring($path.Length).TrimStart('\'))
-            }
-        } catch { $missing.Add("(read error) " + $f.FullName) }
+            if (-not $reference.ContainsKey($key)) { $missing.Add($rel) }
+        } catch { $missing.Add("(read error) " + $rel) }
     }
 
-    $covered = $total - $missing.Count
-    Say ("     மொத்த files: {0}   |   வேற folder-ல இருக்கு: {1}   |   unique (எங்கேயும் இல்ல): {2}" -f $total, $covered, $missing.Count)
+    $realTotal = $total - $junkCount
+    $covered   = $realTotal - $missing.Count
+    Say ("     மொத்தம்: {0}  |  junk ignore: {1}  |  முக்கியம்: {2}  |  backup-ல இருக்கு: {3}  |  unique: {4}" -f $total, $junkCount, $realTotal, $covered, $missing.Count)
 
-    if ($missing.Count -eq 0 -and $total -gt 0) {
-        Say "     ✅ VERDICT: SAFE TO DELETE -- இந்த folder-ல உள்ள எல்லா file-ம் ஏற்கனவே LIVE/BACKUP-ல இருக்கு." "Green"
+    if ($missing.Count -eq 0 -and $realTotal -gt 0) {
+        Say "     ✅ VERDICT: SAFE TO DELETE -- முக்கியமான file எல்லாம் ஏற்கனவே LIVE/BACKUP-ல இருக்கு." "Green"
+        Say ("        (junk " + $junkCount + " file ignore பண்ணப்பட்டது -- logs/.venv/cache, தானா மறுபடி உருவாகும்.)") "Green"
         Say "        (ஆனா delete-க்கு முன்னாடி கீழே உள்ள Step 4 backup-ஐ பண்ணுங்க.)" "Green"
         $verdicts += [pscustomobject]@{ Folder = $name; Verdict = "SAFE TO DELETE (after backup)"; Unique = 0 }
-    } elseif ($total -eq 0) {
-        Say "     ⚪ VERDICT: காலியா இருக்கு / படிக்க முடியல." "DarkGray"
-        $verdicts += [pscustomobject]@{ Folder = $name; Verdict = "EMPTY / unreadable"; Unique = 0 }
+    } elseif ($realTotal -eq 0) {
+        Say "     ⚪ VERDICT: முக்கியமான file இல்ல (காலி / junk மட்டும் / படிக்க முடியல)." "DarkGray"
+        $verdicts += [pscustomobject]@{ Folder = $name; Verdict = "EMPTY / junk-only / unreadable"; Unique = 0 }
     } else {
         Say ("     ⚠️ VERDICT: இன்னும் DELETE பண்ணாதீங்க -- " + $missing.Count + " file வேற எங்கேயும் இல்ல:") "Red"
         $show = [math]::Min($missing.Count, 30)
